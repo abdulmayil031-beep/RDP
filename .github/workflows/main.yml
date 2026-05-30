@@ -50,23 +50,30 @@ jobs:
               $retries++
           }
           if (-not $tsIP) { Write-Error "Tailscale IP not assigned."; exit 1 }
+          # IP adresini environment değişkenine yaz
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
-      
+
       - name: Verify RDP Accessibility
         shell: powershell
         run: |
-          $env:TAILSCALE_IP = (Get-Content $env:GITHUB_ENV | Select-String "TAILSCALE_IP=").ToString().Split('=')[1]
-          $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
+          # IP adresini ortamdan al (GITHUB_ENV dosyasından değil, GitHub'ın kendi değişkeninden)
+          $ip = "${{ env.TAILSCALE_IP }}"
+          # Eğer yukarıdaki boşsa, dosyadan okumayı dene (yedek yöntem)
+          if (-not $ip) { $ip = (Get-Content $env:GITHUB_ENV | Select-String "TAILSCALE_IP=").ToString().Split('=')[1] }
+          
+          Write-Host "Test edilecek IP: $ip"
+          $testResult = Test-NetConnection -ComputerName $ip -Port 3389
           if (-not $testResult.TcpTestSucceeded) { Write-Error "RDP port 3389 failed"; exit 1 }
           Write-Host "TCP connectivity successful!"
 
       - name: Maintain Connection
         shell: powershell
         run: |
-          $env:TAILSCALE_IP = (Get-Content $env:GITHUB_ENV | Select-String "TAILSCALE_IP=").ToString().Split('=')[1]
+          $ip = "${{ env.TAILSCALE_IP }}"
           Write-Host "`n=== RDP ACCESS ==="
-          Write-Host "Address: $env:TAILSCALE_IP"
+          Write-Host "Address: $ip"
           Write-Host "Username: RDP"
           Write-Host "Password: $env:RDP_PASS"
           Write-Host "==================`n"
           while ($true) { Start-Sleep -Seconds 300 }
+          
